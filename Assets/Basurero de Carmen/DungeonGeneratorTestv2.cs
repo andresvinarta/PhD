@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.AI.Navigation;
+using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -611,10 +612,44 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
         DungeonGenerator generator = new DungeonGenerator(DungeonWidth, DungeonLenght);
 
         var listOfRooms = generator.CalculateDungeon(maxIterations, roomWidthMin, roomHeightMin, roomBottomCornerModifier, roomTopCornerModifier, roomOffset, corridorWidth);
+        List<GameObject> meshesToCombine = new List<GameObject>();
         for (int i = 0; i < listOfRooms.Count; i++) 
         {
-            CreateMesh(listOfRooms[i].BottomLeftAreaCorner, listOfRooms[i].TopRightAreaCorner);
+            meshesToCombine.Add(CreateMesh(listOfRooms[i].BottomLeftAreaCorner, listOfRooms[i].TopRightAreaCorner));
         }
+
+        CombineInstance[] combine = new CombineInstance[meshesToCombine.Count];
+        MeshFilter[] meshFilters = new MeshFilter[meshesToCombine.Count];
+
+        for (int k = 0; k < meshesToCombine.Count; k++) 
+        {
+            meshFilters[k] = meshesToCombine[k].GetComponent<MeshFilter>();
+        }
+
+        for (int j = 0; j < meshFilters.Count(); j++) 
+        {
+            combine[j].mesh = meshFilters[j].sharedMesh;
+            combine[j].transform = meshFilters[j].transform.localToWorldMatrix;
+            meshFilters[j].gameObject.SetActive(false);
+            j++;
+        }
+        Mesh mesh = new Mesh();
+        mesh.CombineMeshes(combine);
+
+        foreach (GameObject todelete in meshesToCombine) 
+        {
+            Destroy(todelete);
+        }
+
+
+        GameObject dungeonFloor = new GameObject("Mesh" , typeof(MeshFilter), typeof(MeshRenderer));
+        dungeonFloor.transform.position = Vector3.zero;
+        dungeonFloor.transform.localScale = Vector3.one;
+        dungeonFloor.GetComponent<MeshFilter>().mesh = mesh;
+
+        dungeonFloor.GetComponent<MeshRenderer>().material = material;
+        dungeonFloor.AddComponent<NavMeshSurface>();
+        dungeonFloor.GetComponent<NavMeshSurface>().BuildNavMesh();
     }
 
     // Update is called once per frame
@@ -623,7 +658,7 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
 
     }
 
-    private void CreateMesh(Vector2 bottomLeftCorner, Vector2 topRightCorner)
+    private GameObject CreateMesh(Vector2 bottomLeftCorner, Vector2 topRightCorner)
     {
         Vector3 bottomLeftV = new Vector3(bottomLeftCorner.x, 0, bottomLeftCorner.y);
         Vector3 bottomRightV = new Vector3(topRightCorner.x, 0, bottomLeftCorner.y);
@@ -657,12 +692,12 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
         mesh.uv = uvs;
         mesh.triangles = triangles;
 
-        GameObject dungeonFloor = new GameObject("Mesh"+bottomLeftCorner,typeof(MeshFilter), typeof(MeshRenderer));
+        GameObject dungeonFloor = new GameObject("Mesh" + bottomLeftCorner, typeof(MeshFilter), typeof(MeshRenderer));
         dungeonFloor.transform.position = Vector3.zero;
         dungeonFloor.transform.localScale = Vector3.one;
         dungeonFloor.GetComponent<MeshFilter>().mesh = mesh;
-        dungeonFloor.GetComponent<MeshRenderer>().material = material;
-        dungeonFloor.AddComponent<NavMeshSurface>();
-        dungeonFloor.GetComponent<NavMeshSurface>().BuildNavMesh();
+
+        return dungeonFloor; 
+
     }
 }
