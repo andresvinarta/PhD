@@ -1,25 +1,29 @@
-using Pada1.BBCore.Nodes;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.AI.Navigation;
+using Unity.Burst.Intrinsics;
 using Unity.VisualScripting;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using UnityEngine.Rendering;
+using static UnityEditor.Searcher.SearcherWindow.Alignment;
 using Random = UnityEngine.Random;
-public enum Orientation 
+
+using UnityEngine.Experimental.U2D;
+using UnityEngine.UIElements;
+using Cinemachine.Utility;
+using UnityEngine.Splines; 
+
+public enum Orientation
 {
     Horizontal = 0,
     Vertical = 1
 }
-public class Line 
+public class Line
 {
     public Orientation orientation;
     public Vector2Int coordinates;
 
-    public Line(Orientation _orientation, Vector2Int _coordinates) 
+    public Line(Orientation _orientation, Vector2Int _coordinates)
     {
         orientation = _orientation;
         coordinates = _coordinates;
@@ -29,36 +33,36 @@ public class Line
 public class BinarySpacePartitioner
 {
     public RoomNode rootNode;
-    
 
-    public BinarySpacePartitioner(int _DungeonWidth, int _DungeonLenght) 
+
+    public BinarySpacePartitioner(int _DungeonWidth, int _DungeonLenght)
     {
-        this.rootNode = new RoomNode(new Vector2Int(0,0), new Vector2Int(_DungeonWidth,_DungeonLenght), null,0);
+        this.rootNode = new RoomNode(new Vector2Int(0, 0), new Vector2Int(_DungeonWidth, _DungeonLenght), null, 0);
     }
 
     public List<RoomNode> PrepareNodesCollections(int maxIterations, int roomWidthMin, int roomLenghtMin)
     {
         Queue<RoomNode> graph = new Queue<RoomNode>();
-        List<RoomNode> listToReturn = new List<RoomNode> ();
+        List<RoomNode> listToReturn = new List<RoomNode>();
 
         graph.Enqueue(rootNode);
         listToReturn.Add(rootNode);
         int iterations = 0;
-        while (iterations < maxIterations && graph.Count > 0) 
+        while (iterations < maxIterations && graph.Count > 0)
         {
             iterations++;
             RoomNode currentNode = graph.Dequeue();
-            if (currentNode.Width >= roomWidthMin * 2 || currentNode.Lenght >= roomLenghtMin * 2) 
+            if (currentNode.Width >= roomWidthMin * 2 || currentNode.Lenght >= roomLenghtMin * 2)
             {
                 SplitTheSpace(currentNode, listToReturn, roomLenghtMin, roomWidthMin, graph);
             }
         }
 
 
-        return listToReturn; 
+        return listToReturn;
     }
 
-    private Line GetLineDividingSpace(Vector2Int BottomLeftAreaCorner, Vector2Int TopRightAreaCorner, int roomWidthMin, int roomLengthMin) 
+    private Line GetLineDividingSpace(Vector2Int BottomLeftAreaCorner, Vector2Int TopRightAreaCorner, int roomWidthMin, int roomLengthMin)
     {
         Orientation orientation;
         bool lenghtStatus = (TopRightAreaCorner.y - BottomLeftAreaCorner.y) > 2 * roomLengthMin;
@@ -71,25 +75,25 @@ public class BinarySpacePartitioner
         {
             orientation = Orientation.Vertical;
         }
-        else 
+        else
         {
             orientation = Orientation.Horizontal;
         }
 
-        return new Line(orientation, GetCoordinatesForOrientation(orientation, BottomLeftAreaCorner, TopRightAreaCorner,roomWidthMin, roomLengthMin));
-        
+        return new Line(orientation, GetCoordinatesForOrientation(orientation, BottomLeftAreaCorner, TopRightAreaCorner, roomWidthMin, roomLengthMin));
+
     }
 
-    private Vector2Int GetCoordinatesForOrientation(Orientation orientation, Vector2Int BottomLeftAreaCorner, Vector2Int TopRightAreaCorner, int roomWidthMin, int roomLenghtMin) 
+    private Vector2Int GetCoordinatesForOrientation(Orientation orientation, Vector2Int BottomLeftAreaCorner, Vector2Int TopRightAreaCorner, int roomWidthMin, int roomLenghtMin)
     {
         Vector2Int coordinates = Vector2Int.zero;
         if (orientation == Orientation.Horizontal)
         {
             coordinates = new Vector2Int(0, Random.Range((BottomLeftAreaCorner.y + roomLenghtMin), (TopRightAreaCorner.y - roomLenghtMin)));
         }
-        else 
+        else
         {
-            coordinates = new Vector2Int(Random.Range((BottomLeftAreaCorner.x + roomWidthMin), (TopRightAreaCorner.x - roomWidthMin)),0);
+            coordinates = new Vector2Int(Random.Range((BottomLeftAreaCorner.x + roomWidthMin), (TopRightAreaCorner.x - roomWidthMin)), 0);
         }
         return coordinates;
     }
@@ -116,20 +120,20 @@ public class BinarySpacePartitioner
 
     }
 
-    private void AddNewNodeToCollections(List<RoomNode> listToReturn, Queue<RoomNode> graph, RoomNode node) 
+    private void AddNewNodeToCollections(List<RoomNode> listToReturn, Queue<RoomNode> graph, RoomNode node)
     {
         listToReturn.Add(node);
         graph.Enqueue(node);
     }
 }
 
-public abstract class Node 
+public abstract class Node
 {
-    public Node parent;  
+    public Node parent;
 
-    public List<Node> childrenNodeList; 
+    public List<Node> childrenNodeList;
 
-   public bool Visited { get; set; }
+    public bool Visited { get; set; }
     public Vector2Int BottomLeftAreaCorner { get; set; }
     public Vector2Int BottomRightAreaCorner { get; set; }
     public Vector2Int TopRightAreaCorner { get; set; }
@@ -137,22 +141,22 @@ public abstract class Node
 
     public int TreeLayerIndex { get; set; }
 
-    public Node(Node _parent) 
+    public Node(Node _parent)
     {
         childrenNodeList = new List<Node>();
         this.parent = _parent;
-        if (_parent != null) 
+        if (_parent != null)
         {
             _parent.AddChild(this);
         }
     }
 
-    public void AddChild(Node node) 
+    public void AddChild(Node node)
     {
         childrenNodeList.Add(node);
     }
 
-    public void RemoveChild(Node node) 
+    public void RemoveChild(Node node)
     {
         childrenNodeList.Remove(node);
     }
@@ -164,7 +168,7 @@ public class RoomNode : Node
     public int Width { get => (int)(TopRightAreaCorner.x - BottomLeftAreaCorner.x); }
     public int Lenght { get => (int)(TopRightAreaCorner.y - BottomLeftAreaCorner.y); }
 
-    public RoomNode(Vector2Int bottomLeftAreaCorner, Vector2Int TopRightAreaCorner, Node parentNode, int index) : base(parentNode) 
+    public RoomNode(Vector2Int bottomLeftAreaCorner, Vector2Int TopRightAreaCorner, Node parentNode, int index) : base(parentNode)
     {
         this.BottomLeftAreaCorner = bottomLeftAreaCorner;
         this.TopRightAreaCorner = TopRightAreaCorner;
@@ -186,7 +190,7 @@ public class RoomGenerator
         roomWidthMin = _roomWidthMin;
     }
 
-    public List<RoomNode> GenerateRoomsInGivenSpaces(List<Node> roomSpaces, float roomBottomCornerModifier, float roomTopCornerModifier, int roomOffset )
+    public List<RoomNode> GenerateRoomsInGivenSpaces(List<Node> roomSpaces, float roomBottomCornerModifier, float roomTopCornerModifier, int roomOffset)
     {
         List<RoomNode> listToReturn = new List<RoomNode>();
         foreach (var space in roomSpaces)
@@ -204,18 +208,18 @@ public class RoomGenerator
     }
 }
 
-public class DungeonGenerator 
+public class DungeonGenerator
 {
     RoomNode rootNode;
-    List<RoomNode> allNodesCollection = new List<RoomNode>(); 
+    List<RoomNode> allNodesCollection = new List<RoomNode>();
     public int dungeonWidth, dungeonLenght;
-    public DungeonGenerator(int _dungeonWidth, int _dungeonLenght) 
+    public DungeonGenerator(int _dungeonWidth, int _dungeonLenght)
     {
         dungeonWidth = _dungeonWidth;
-        dungeonLenght = _dungeonLenght; 
+        dungeonLenght = _dungeonLenght;
     }
 
-    public List<Node> CalculateDungeon(int maxIterations, int roomWidthMin, int roomLenghtMin, float roomBottomCornerModifier, float roomTopCornerModifier, int roomOffset, int corridorWidth) 
+    public List<Node> CalculateDungeon(int maxIterations, int roomWidthMin, int roomLenghtMin, float roomBottomCornerModifier, float roomTopCornerModifier, int roomOffset, int corridorWidth)
     {
         BinarySpacePartitioner bsp = new BinarySpacePartitioner(dungeonWidth, dungeonLenght);
         allNodesCollection = bsp.PrepareNodesCollections(maxIterations, roomWidthMin, roomLenghtMin);
@@ -224,26 +228,26 @@ public class DungeonGenerator
         List<RoomNode> roomList = roomGenerator.GenerateRoomsInGivenSpaces(roomSpaces, roomBottomCornerModifier, roomTopCornerModifier, roomOffset);
 
         CorridorGenerator corridorGenerator = new CorridorGenerator();
-        var corridorList = corridorGenerator.CreateCorridor(allNodesCollection,corridorWidth);
-        
+        var corridorList = corridorGenerator.CreateCorridor(allNodesCollection, corridorWidth);
+
         return new List<Node>(roomList).Concat(corridorList).ToList();
     }
 
 }
 
-public class CorridorGenerator 
+public class CorridorGenerator
 {
     public CorridorGenerator() { }
 
-    public List<Node> CreateCorridor(List<RoomNode> allNodesCollection, int corridorWidth) 
+    public List<Node> CreateCorridor(List<RoomNode> allNodesCollection, int corridorWidth)
     {
         List<Node> corridorList = new List<Node>();
-        Queue<RoomNode> structuresToCheck = new Queue<RoomNode>(allNodesCollection.OrderByDescending(node=> node.TreeLayerIndex).ToList());
+        Queue<RoomNode> structuresToCheck = new Queue<RoomNode>(allNodesCollection.OrderByDescending(node => node.TreeLayerIndex).ToList());
 
-        while (structuresToCheck.Count > 0) 
+        while (structuresToCheck.Count > 0)
         {
             var node = structuresToCheck.Dequeue();
-            if (node.childrenNodeList.Count == 0) 
+            if (node.childrenNodeList.Count == 0)
             {
                 continue;
             }
@@ -255,7 +259,7 @@ public class CorridorGenerator
 
 }
 
-public enum RelativePosition 
+public enum RelativePosition
 {
     Up,
     Down,
@@ -270,7 +274,8 @@ public class CorridorNode : Node
     private Node structure1;
     private Node structure2;
     private int corridorWidth;
-    private int modifierDistanceFromWall = 1;
+    public int modifierDistanceFromWall = 100;
+    public int modifierDistanceRelation = 50;
 
     public CorridorNode(Node node1, Node node2, int corridorWidth) : base(null)
     {
@@ -317,7 +322,7 @@ public class CorridorNode : Node
         else
         {
             int maxX = sortedLeftStructure[0].TopRightAreaCorner.x;
-            sortedLeftStructure = sortedLeftStructure.Where(children => Math.Abs(maxX - children.TopRightAreaCorner.x) < 10).ToList();
+            sortedLeftStructure = sortedLeftStructure.Where(children => Math.Abs(maxX - children.TopRightAreaCorner.x) < modifierDistanceRelation).ToList();
             int index = UnityEngine.Random.Range(0, sortedLeftStructure.Count);
             leftStructure = sortedLeftStructure[index];
         }
@@ -404,7 +409,7 @@ public class CorridorNode : Node
         else
         {
             int maxY = sortedBottomStructure[0].TopLeftAreaCorner.y;
-            sortedBottomStructure = sortedBottomStructure.Where(child => Mathf.Abs(maxY - child.TopLeftAreaCorner.y) < 10).ToList();
+            sortedBottomStructure = sortedBottomStructure.Where(child => Mathf.Abs(maxY - child.TopLeftAreaCorner.y) < modifierDistanceRelation).ToList();
             int index = UnityEngine.Random.Range(0, sortedBottomStructure.Count);
             bottomStructure = sortedBottomStructure[index];
         }
@@ -547,18 +552,18 @@ public static class StructureHelper
         return listToReturn;
     }
 
-        public static Vector2Int GenerateBottomLeftCornerBetween(Vector2Int boundaryLeftPoint, Vector2Int boundaryRightPoint, float pointModifier, int offset)
-        {
-            int minX = boundaryLeftPoint.x + offset;
-            int maxX = boundaryRightPoint.x - offset;
-            int minY = boundaryLeftPoint.y + offset;
-            int maxY = boundaryRightPoint.y - offset;
+    public static Vector2Int GenerateBottomLeftCornerBetween(Vector2Int boundaryLeftPoint, Vector2Int boundaryRightPoint, float pointModifier, int offset)
+    {
+        int minX = boundaryLeftPoint.x + offset;
+        int maxX = boundaryRightPoint.x - offset;
+        int minY = boundaryLeftPoint.y + offset;
+        int maxY = boundaryRightPoint.y - offset;
 
-            return new Vector2Int(
-                Random.Range(minX, (int)(minX + (maxX - minX) * pointModifier)),
-                Random.Range(minY, (int)(minY + (maxY - minY) * pointModifier))
-                );
-        }
+        return new Vector2Int(
+            Random.Range(minX, (int)(minX + (maxX - minX) * pointModifier)),
+            Random.Range(minY, (int)(minY + (maxY - minY) * pointModifier))
+            );
+    }
 
 
     public static Vector2Int GenerateTopRightCornerBetween(Vector2Int boundaryLeftPoint, Vector2Int boundaryRightPoint, float pointModifier, int offset)
@@ -569,8 +574,8 @@ public static class StructureHelper
         int maxY = boundaryRightPoint.y - offset;
 
         return new Vector2Int(
-            Random.Range((int)(minX + (maxX - minX) * pointModifier),maxX),
-            Random.Range((int)(minY + (maxY - minY) * pointModifier),maxY)
+            Random.Range((int)(minX + (maxX - minX) * pointModifier), maxX),
+            Random.Range((int)(minY + (maxY - minY) * pointModifier), maxY)
             );
     }
 
@@ -600,6 +605,9 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
     [Range(0.7f, 1.0f)]
     public float roomTopCornerModifier;
     public int roomOffset;
+    List<List<Vector3>> RoomWallLoop = new List<List<Vector3>>();
+    public SplineInstantiate.InstantiableItem customWall; 
+
 
     // Start is called before the first frame update
     void Start()
@@ -612,45 +620,92 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
         DungeonGenerator generator = new DungeonGenerator(DungeonWidth, DungeonLenght);
 
         var listOfRooms = generator.CalculateDungeon(maxIterations, roomWidthMin, roomHeightMin, roomBottomCornerModifier, roomTopCornerModifier, roomOffset, corridorWidth);
+
         List<GameObject> meshesToCombine = new List<GameObject>();
-        for (int i = 0; i < listOfRooms.Count; i++) 
+
+
+ 
+        GameObject wallParent = new GameObject("WallParent");
+        wallParent.transform.parent = transform;
+
+
+
+        for (int i = 0; i < listOfRooms.Count; i++)
         {
             meshesToCombine.Add(CreateMesh(listOfRooms[i].BottomLeftAreaCorner, listOfRooms[i].TopRightAreaCorner));
         }
 
-        CombineInstance[] combine = new CombineInstance[meshesToCombine.Count];
-        MeshFilter[] meshFilters = new MeshFilter[meshesToCombine.Count];
+        //draw line
+
+
+        foreach (List<Vector3> loop in RoomWallLoop) 
+        {
+            GameObject lineRenderer = new GameObject();
+            lineRenderer.AddComponent<LineRenderer>();
+
+            SplineContainer splineContainer = gameObject.AddComponent<SplineContainer>();
+
+            Spline spline = splineContainer.Spline;
+
+            SplineInstantiate instantiate = new SplineInstantiate();
+            instantiate.itemsToInstantiate = new SplineInstantiate.InstantiableItem[] { customWall };
+            instantiate.Container = splineContainer;
+
+            spline.splinemes
+
+
+            spline.Clear();
+
+            lineRenderer.GetComponent<LineRenderer>().positionCount = loop.Count;
+            for (int l = 0;  l < loop.Count; l++) 
+            {
+                lineRenderer.GetComponent<LineRenderer>().SetPosition(l, loop[l]);
+                spline.Add(new BezierKnot(loop[l], 0, 0));
+
+            }
+
+        }
+
+
+        MeshFilter[] meshFilters = new MeshFilter[listOfRooms.Count];
 
         for (int k = 0; k < meshesToCombine.Count; k++) 
         {
             meshFilters[k] = meshesToCombine[k].GetComponent<MeshFilter>();
         }
+  
+        CombineInstance[] combine = new CombineInstance[meshFilters.Length];
 
-        for (int j = 0; j < meshFilters.Count(); j++) 
+        int j = 0;
+        while (j < meshFilters.Length)
         {
             combine[j].mesh = meshFilters[j].sharedMesh;
             combine[j].transform = meshFilters[j].transform.localToWorldMatrix;
             meshFilters[j].gameObject.SetActive(false);
+
             j++;
         }
-        Mesh mesh = new Mesh();
-        mesh.CombineMeshes(combine);
 
-        foreach (GameObject todelete in meshesToCombine) 
-        {
-            Destroy(todelete);
-        }
+        Mesh DungeonFloorMesh = new Mesh();
+        DungeonFloorMesh.CombineMeshes(combine);
+
+        GameObject DungeonFloor = new GameObject("DungeonFloor");
 
 
-        GameObject dungeonFloor = new GameObject("Mesh" , typeof(MeshFilter), typeof(MeshRenderer));
-        dungeonFloor.transform.position = Vector3.zero;
-        dungeonFloor.transform.localScale = Vector3.one;
-        dungeonFloor.GetComponent<MeshFilter>().mesh = mesh;
+        // Add a mesh filter component to the game object and set the combined mesh as its mesh
+        DungeonFloor.AddComponent<MeshFilter>();
+        DungeonFloor.GetComponent<MeshFilter>().mesh = DungeonFloorMesh;
 
-        dungeonFloor.GetComponent<MeshRenderer>().material = material;
-        dungeonFloor.AddComponent<NavMeshSurface>();
-        dungeonFloor.GetComponent<NavMeshSurface>().BuildNavMesh();
+        // Add a mesh renderer component to the game object to see the combined mesh
+        DungeonFloor.AddComponent<MeshRenderer>();
+        DungeonFloor.GetComponent<MeshRenderer>().material = material;
+        DungeonFloor.AddComponent<NavMeshSurface>();
+        DungeonFloor.GetComponent<NavMeshSurface>().BuildNavMesh();
+        DungeonFloor.AddComponent<MeshCollider>();
+
     }
+
+  
 
     // Update is called once per frame
     void Update()
@@ -672,13 +727,14 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
             bottomRightV,
         };
 
+
         Vector2[] uvs = new Vector2[vertices.Length];
         for (int i = 0; i < vertices.Length; i++)
         {
             uvs[i] = new Vector2(vertices[i].x, vertices[i].z);
         }
 
-        int[] triangles = new int[] 
+        int[] triangles = new int[]
         {
             0,
             1,
@@ -697,7 +753,15 @@ public class DungeonGeneratorTestv2 : MonoBehaviour
         dungeonFloor.transform.localScale = Vector3.one;
         dungeonFloor.GetComponent<MeshFilter>().mesh = mesh;
 
-        return dungeonFloor; 
+
+        RoomWallLoop.Add(new List<Vector3> {
+            topLeftV,topRightV,bottomRightV,bottomLeftV,topLeftV
+        });
+
+
+
+        return dungeonFloor;
 
     }
+
 }
